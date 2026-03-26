@@ -489,7 +489,7 @@
   </div>
 
   <div class="sidebar-bottom">
-    <div class="powered-badge" id="model-badge">🤗 Powered by <span>Hugging Face</span> · Qwen2.5-7B</div>
+    <div class="powered-badge" id="model-badge">🤗 Powered by <span>Hugging Face</span> · Llama-3.1</div>
     <button class="settings-btn" onclick="openSettings()">⚙️ &nbsp; Settings & Preferences</button>
     <button class="settings-btn">📋 &nbsp; Health Disclaimer</button>
   </div>
@@ -648,16 +648,19 @@
 
 <script>
 // ─── CONFIG ────────────────────────────────────────────────────────────────
-// Correct HF Inference Provider endpoint (OpenAI-compatible)
+// The correct HF router URL — OpenAI-compatible, provider selected via :suffix on model name
 let HF_TOKEN = localStorage.getItem('hf_token') || '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';
-// Correct URL format: router.huggingface.co/hf-inference/v1
-const HF_API_URL = 'https://router.huggingface.co/hf-inference/v1/chat/completions';
-// Fallback chain — tried in order until one works
+const HF_API_URL = 'https://router.huggingface.co/v1/chat/completions';
+
+// Model + provider pairs using the official ":provider" suffix format.
+// ":auto" lets HF pick the best available provider automatically.
+// Fallback chain tried in order until one succeeds.
 const HF_MODELS = [
-  'Qwen/Qwen2.5-7B-Instruct',
-  'mistralai/Mistral-7B-Instruct-v0.3',
-  'microsoft/Phi-3.5-mini-instruct',
-  'HuggingFaceH4/zephyr-7b-beta'
+  'meta-llama/Llama-3.1-8B-Instruct:nebius',
+  'Qwen/Qwen2.5-72B-Instruct:nebius',
+  'meta-llama/Llama-3.1-8B-Instruct:novita',
+  'Qwen/Qwen2.5-7B-Instruct:auto',
+  'mistralai/Mistral-7B-Instruct-v0.3:auto'
 ];
 
 // ─── STATE ─────────────────────────────────────────────────────────────────
@@ -752,25 +755,23 @@ async function sendMessage() {
   }
 }
 
-// ─── CALL HUGGING FACE API (with model fallback chain) ─────────────────────
+// ─── CALL HUGGING FACE API (provider-router with :provider suffix) ──────────
 async function callHuggingFace(userText, imgBase64, imgMime) {
   const langNote = langInstructions[currentLang] || '';
   const systemContent = SYSTEM_INSTRUCTION + (langNote ? `\n\n${langNote}` : '');
 
+  // Build message history
   const baseMessages = [{ role: 'system', content: systemContent }];
-  const historySlice = conversationHistory.slice(-8);
-  for (const turn of historySlice) {
+  for (const turn of conversationHistory.slice(-8)) {
     baseMessages.push({ role: turn.role, content: turn.content });
   }
 
+  // Current user turn — image_url supported by vision-capable models
   let userContent;
   if (imgBase64) {
     userContent = [
       { type: 'image_url', image_url: { url: imgBase64 } },
-      {
-        type: 'text',
-        text: userText || 'Analyze this food image from a nutritional health perspective. Describe what you see, estimate nutritional content, and give health insights.'
-      }
+      { type: 'text', text: userText || 'Analyze this food image: describe what you see, estimate nutrition, and give health insights.' }
     ];
   } else {
     userContent = userText;
@@ -778,41 +779,46 @@ async function callHuggingFace(userText, imgBase64, imgMime) {
 
   const messages = [...baseMessages, { role: 'user', content: userContent }];
 
-  let lastError = '';
+  let lastError = 'No models tried yet';
+
   for (const model of HF_MODELS) {
     try {
-      const payload = {
-        model,
-        messages,
-        max_tokens: 1024,
-        temperature: 0.7,
-        top_p: 0.9,
-        stream: false
-      };
-
       const res = await fetch(HF_API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${HF_TOKEN.trim()}`
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          model,                  // e.g. "meta-llama/Llama-3.1-8B-Instruct:nebius"
+          messages,
+          max_tokens: 1024,
+          temperature: 0.7,
+          top_p: 0.9,
+          stream: false
+        })
       });
 
-      const data = await res.json().catch(() => ({}));
+      // Parse body regardless of status — error details are inside
+      let data;
+      try { data = await res.json(); } catch(_) { data = {}; }
 
-      // Auth error — no point trying other models
+      // 401/403 = bad token — no point trying other models
       if (res.status === 401 || res.status === 403) {
-        const msg = data?.error?.message || data?.error || 'Invalid or expired token';
-        showTokenPrompt(msg);
-        throw new Error('🔑 Token invalid — please enter a valid HF token in the panel.');
+        showTokenPrompt();
+        throw new Error('🔑 Token rejected — open ⚙️ Settings and paste a valid HF token.');
       }
 
-      // Model not available — try next
-      if (res.status === 404 || res.status === 422 || res.status === 400) {
-        lastError = data?.error?.message || data?.error || `Model ${model} not available`;
-        console.warn(`[HF] ${model} → ${res.status}: ${lastError}`);
+      // Model/provider not available — skip to next
+      if (res.status === 404 || res.status === 400 || res.status === 422) {
+        lastError = data?.error?.message || data?.error || `${model} not available (${res.status})`;
+        console.warn(`[HF] Skip ${model}: ${lastError}`);
         continue;
+      }
+
+      // Rate limit — surface clearly
+      if (res.status === 429) {
+        throw new Error('Rate limit reached. Wait a moment and try again, or upgrade to HF PRO.');
       }
 
       if (!res.ok) {
@@ -820,34 +826,36 @@ async function callHuggingFace(userText, imgBase64, imgMime) {
       }
 
       const reply = data?.choices?.[0]?.message?.content?.trim();
-      if (!reply) throw new Error('Empty response from model.');
+      if (!reply) { lastError = 'Empty response'; continue; }
 
-      // Update badge with active model name
-      const shortName = model.split('/')[1] || model;
+      // Update badge to show which model/provider responded
+      const [modelBase, provider] = model.split(':');
+      const shortName = modelBase.split('/')[1] || modelBase;
       const badge = document.getElementById('model-badge');
-      if (badge) badge.innerHTML = `🤗 Powered by <span>Hugging Face</span> · ${shortName}`;
+      if (badge) badge.innerHTML = `🤗 <span style="color:var(--accent)">${shortName}</span> via ${provider || 'HF'}`;
 
       return reply;
 
-    } catch (e) {
-      if (e.message.includes('Token invalid') || e.message.includes('🔑')) throw e;
-      lastError = e.message;
-      const isSkippable = /not supported|not found|unavailable|no provider|not available|422|400|404/i.test(e.message);
-      if (isSkippable) { console.warn(`[HF] Skipping ${model}: ${e.message}`); continue; }
-      throw e;
+    } catch (err) {
+      // Hard stops — don't try next model
+      if (err.message.includes('🔑') || err.message.includes('Rate limit')) throw err;
+      lastError = err.message;
+      const skippable = /not available|not found|not supported|no provider|404|400|422|unavailable/i.test(err.message);
+      if (skippable) { console.warn(`[HF] Skip ${model}: ${err.message}`); continue; }
+      throw err;
     }
   }
-  throw new Error(`All models unavailable. Last: ${lastError}`);
+
+  throw new Error(`All providers failed. Last error: ${lastError}`);
 }
 
 // ─── TOKEN PROMPT ──────────────────────────────────────────────────────────
-function showTokenPrompt(reason) {
-  // Open settings and scroll to token field
+function showTokenPrompt() {
   openSettings();
   setTimeout(() => {
     const el = document.getElementById('hf-token-field');
-    if (el) { el.focus(); el.select(); el.style.borderColor = '#ef4444'; }
-  }, 300);
+    if (el) { el.focus(); el.select(); el.style.borderColor = '#ef4444'; el.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.2)'; }
+  }, 350);
 }
 
 function saveToken() {
