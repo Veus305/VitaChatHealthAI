@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>VitaChat — AI Health Companion</title>
+<title>VitaChat — AI Health Companion (HF Edition)</title>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet"/>
 <style>
   :root {
@@ -489,7 +489,7 @@
   </div>
 
   <div class="sidebar-bottom">
-    <div class="powered-badge">⚡ Powered by <span>Google Gemini</span></div>
+    <div class="powered-badge" id="model-badge">🤗 Powered by <span>Hugging Face</span> · Qwen2.5-7B</div>
     <button class="settings-btn" onclick="openSettings()">⚙️ &nbsp; Settings & Preferences</button>
     <button class="settings-btn">📋 &nbsp; Health Disclaimer</button>
   </div>
@@ -504,7 +504,7 @@
     </div>
     <div class="chat-header-info">
       <h2>VitaChat Health AI</h2>
-      <p>Powered by Google Gemini • Always online</p>
+      <p>Powered by Hugging Face Llama • Always online</p>
     </div>
     <div class="header-actions">
       <button class="icon-btn" title="Toggle theme" onclick="toggleTheme()">☀️</button>
@@ -516,7 +516,7 @@
     <div class="welcome" id="welcome-screen">
       <div class="welcome-icon">🌿</div>
       <h1>Your <span>Health</span> Companion</h1>
-      <p>Ask me anything about nutrition, diet plans, common health conditions, food benefits, and wellness tips. Powered by Google Gemini AI.</p>
+      <p>Ask me anything about nutrition, diet plans, common health conditions, food benefits, and wellness tips. Powered by Hugging Face AI.</p>
       <div class="welcome-chips">
         <button class="welcome-chip" onclick="quickTopic('What should I eat for better energy throughout the day?')">⚡ Energy foods</button>
         <button class="welcome-chip" onclick="quickTopic('Explain the benefits of a Mediterranean diet')">🫒 Mediterranean diet</button>
@@ -624,8 +624,15 @@
 
 <script>
 // ─── CONFIG ────────────────────────────────────────────────────────────────
-const GEMINI_API_KEY = 'AIzaSyAC3_y0jd5bIqTIPF3KN5DztWgCXK02AxM';
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+const HF_TOKEN = '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';
+const HF_API_URL = 'https://router.huggingface.co/v1/chat/completions';
+// Fallback chain — tried in order until one works
+const HF_MODELS = [
+  'Qwen/Qwen2.5-7B-Instruct',
+  'meta-llama/Meta-Llama-3-8B-Instruct',
+  'HuggingFaceTB/SmolLM3-3B',
+  'Qwen/Qwen3-4B-Instruct-2507'
+];
 
 // ─── STATE ─────────────────────────────────────────────────────────────────
 let pendingImage = null;
@@ -646,7 +653,7 @@ const SYSTEM_INSTRUCTION = `You are VitaChat, a friendly and knowledgeable AI he
 
 When relevant, format your responses with clear structure using bold headers (using **text**), bullet points, and organized sections.
 When discussing foods, mention their nutritional value enthusiastically.
-If the user uploads an image of food, analyze it thoroughly from a nutritional health perspective.
+If the user shares an image description of food, analyze it from a nutritional health perspective.
 Always be warm, encouraging, and motivating about health journeys.
 REFUSE any non-health topics politely and redirect to health topics.
 Keep responses helpful, accurate, and appropriately concise.`;
@@ -698,118 +705,114 @@ async function sendMessage() {
   removeImage();
   scrollBottom();
 
-  // Add to history (text only for history tracking)
-  if (userText) {
-    conversationHistory.push({ role: 'user', text: userText });
-  }
-
   // Show typing
   const typingRow = addTyping();
 
   try {
-    const reply = await callGemini(userText, imgBase64, imgMime);
+    const reply = await callHuggingFace(userText, imgBase64, imgMime);
     typingRow.remove();
     addBotMessage(reply);
-    conversationHistory.push({ role: 'model', text: reply });
-    // Keep history manageable
+
+    // Keep conversation history for context (text only)
+    conversationHistory.push({ role: 'user', content: userText || '[image uploaded]' });
+    conversationHistory.push({ role: 'assistant', content: reply });
     if (conversationHistory.length > 20) conversationHistory = conversationHistory.slice(-20);
+
   } catch (e) {
     typingRow.remove();
     const errMsg = e.message || 'Unknown error';
     addBotMessage(`⚠️ **Connection issue:** ${errMsg}\n\nPlease check your internet connection and try again. 🌿`, true);
-    console.error('Gemini API Error:', e);
+    console.error('HF API Error:', e);
   }
 }
 
-// ─── CALL GEMINI API ───────────────────────────────────────────────────────
-async function callGemini(userText, imgBase64, imgMime) {
+// ─── CALL HUGGING FACE API (with model fallback chain) ─────────────────────
+async function callHuggingFace(userText, imgBase64, imgMime) {
   const langNote = langInstructions[currentLang] || '';
-  const fullSystem = SYSTEM_INSTRUCTION + (langNote ? `\n\n${langNote}` : '');
+  const systemContent = SYSTEM_INSTRUCTION + (langNote ? `\n\n${langNote}` : '');
 
-  // Build contents array for multi-turn conversation
-  const contents = [];
-
-  // Add conversation history (last few turns)
-  const historyToSend = conversationHistory.slice(-8); // last 4 exchanges
-  for (const turn of historyToSend) {
-    contents.push({
-      role: turn.role,
-      parts: [{ text: turn.text }]
-    });
+  // Build base messages
+  const baseMessages = [{ role: 'system', content: systemContent }];
+  const historySlice = conversationHistory.slice(-8);
+  for (const turn of historySlice) {
+    baseMessages.push({ role: turn.role, content: turn.content });
   }
 
-  // Build current user message parts
-  const userParts = [];
-
+  // Build user content — image_url format for vision models, plain text otherwise
+  let userContent;
   if (imgBase64) {
-    // Strip the data URI prefix to get raw base64
-    const rawBase64 = imgBase64.replace(/^data:image\/\w+;base64,/, '');
-    userParts.push({
-      inline_data: {
-        mime_type: imgMime,
-        data: rawBase64
+    userContent = [
+      { type: 'image_url', image_url: { url: imgBase64 } },
+      {
+        type: 'text',
+        text: userText || 'Analyze this food image from a nutritional health perspective. Describe what you see, estimate nutritional content, and give health insights.'
       }
-    });
+    ];
+  } else {
+    userContent = userText;
   }
 
-  userParts.push({
-    text: userText || 'Please analyze this image from a nutritional and health perspective.'
-  });
+  const messages = [...baseMessages, { role: 'user', content: userContent }];
 
-  contents.push({
-    role: 'user',
-    parts: userParts
-  });
+  // Try each model in the fallback chain
+  let lastError = '';
+  for (const model of HF_MODELS) {
+    try {
+      const payload = {
+        model,
+        messages,
+        max_tokens: 1024,
+        temperature: 0.7,
+        top_p: 0.9,
+        stream: false
+      };
 
-  const payload = {
-    system_instruction: {
-      parts: [{ text: fullSystem }]
-    },
-    contents: contents,
-    generationConfig: {
-      temperature: 0.7,
-      topK: 40,
-      topP: 0.95,
-      maxOutputTokens: 1024
-    },
-    safetySettings: [
-      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' }
-    ]
-  };
+      const res = await fetch(HF_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${HF_TOKEN}`,
+          'x-wait-for-model': 'true'
+        },
+        body: JSON.stringify(payload)
+      });
 
-  const res = await fetch(GEMINI_API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
+      // If model not available, try next
+      if (res.status === 404 || res.status === 422) {
+        const errData = await res.json().catch(() => ({}));
+        lastError = errData?.error?.message || errData?.error || `Model ${model} unavailable`;
+        console.warn(`Model ${model} failed (${res.status}), trying next...`);
+        continue;
+      }
 
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    const msg = errData?.error?.message || `HTTP ${res.status}`;
-    throw new Error(msg);
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData?.error?.message || errData?.error || `HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      const reply = data?.choices?.[0]?.message?.content?.trim();
+      if (!reply) throw new Error('Empty response.');
+      return reply;
+
+    } catch (e) {
+      // If it's a network/parse error (not a graceful 404), rethrow
+      if (!lastError || e.message !== lastError) {
+        lastError = e.message;
+      }
+      // Continue to next model only for "not supported" type errors
+      if (e.message.toLowerCase().includes('not supported') ||
+          e.message.toLowerCase().includes('not found') ||
+          e.message.toLowerCase().includes('unavailable') ||
+          e.message.toLowerCase().includes('no provider')) {
+        console.warn(`Model ${model} error: ${e.message}, trying next...`);
+        continue;
+      }
+      throw e;
+    }
   }
 
-  const data = await res.json();
-
-  // Handle blocked content
-  if (data.promptFeedback?.blockReason) {
-    throw new Error(`Content blocked: ${data.promptFeedback.blockReason}`);
-  }
-
-  const candidate = data.candidates?.[0];
-  if (!candidate) throw new Error('No response generated.');
-
-  if (candidate.finishReason === 'SAFETY') {
-    throw new Error('Response blocked by safety filters.');
-  }
-
-  const text = candidate.content?.parts?.map(p => p.text || '').join('') || '';
-  if (!text) throw new Error('Empty response from Gemini.');
-
-  return text;
+  throw new Error(`All models unavailable. Last error: ${lastError}`);
 }
 
 // ─── BOT MESSAGE ──────────────────────────────────────────────────────────
@@ -974,7 +977,7 @@ function newChat() {
   welcome.innerHTML = `
     <div class="welcome-icon">🌿</div>
     <h1>Your <span>Health</span> Companion</h1>
-    <p>Ask me anything about nutrition, diet plans, common health conditions, food benefits, and wellness tips. Powered by Google Gemini AI.</p>
+    <p>Ask me anything about nutrition, diet plans, common health conditions, food benefits, and wellness tips. Powered by Hugging Face AI.</p>
     <div class="welcome-chips">
       <button class="welcome-chip" onclick="quickTopic('What should I eat for better energy throughout the day?')">⚡ Energy foods</button>
       <button class="welcome-chip" onclick="quickTopic('Explain the benefits of a Mediterranean diet')">🫒 Mediterranean diet</button>
