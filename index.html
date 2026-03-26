@@ -561,6 +561,30 @@
   <div class="settings-body">
 
     <div class="setting-group">
+      <label>🔑 Hugging Face Token</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input
+          type="password"
+          id="hf-token-field"
+          placeholder="hf_xxxxxxxxxxxxxxxxxxxx"
+          value="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"
+          style="flex:1;padding:9px 12px;border-radius:10px;background:var(--surface);
+                 border:1px solid var(--border);color:var(--text);font-family:var(--font-family);
+                 font-size:12px;outline:none;transition:border-color 0.2s,box-shadow 0.2s;
+                 font-family:monospace"
+        />
+        <button onclick="saveToken()" style="padding:9px 14px;border-radius:10px;
+          background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;
+          color:#0a0f1a;font-weight:600;font-size:13px;cursor:pointer;
+          font-family:var(--font-family);white-space:nowrap">Save</button>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:6px">
+        Get a free token at <a href="https://huggingface.co/settings/tokens" target="_blank"
+        style="color:var(--accent)">huggingface.co/settings/tokens</a> — needs <b>Inference</b> permission
+      </div>
+    </div>
+
+    <div class="setting-group">
       <label>Theme</label>
       <div class="theme-btns">
         <button class="theme-btn light" id="btn-light" onclick="setTheme('light')">☀️ Light</button>
@@ -624,14 +648,16 @@
 
 <script>
 // ─── CONFIG ────────────────────────────────────────────────────────────────
-const HF_TOKEN = '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';
-const HF_API_URL = 'https://router.huggingface.co/v1/chat/completions';
+// Correct HF Inference Provider endpoint (OpenAI-compatible)
+let HF_TOKEN = localStorage.getItem('hf_token') || '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';
+// Correct URL format: router.huggingface.co/hf-inference/v1
+const HF_API_URL = 'https://router.huggingface.co/hf-inference/v1/chat/completions';
 // Fallback chain — tried in order until one works
 const HF_MODELS = [
   'Qwen/Qwen2.5-7B-Instruct',
-  'meta-llama/Meta-Llama-3-8B-Instruct',
-  'HuggingFaceTB/SmolLM3-3B',
-  'Qwen/Qwen3-4B-Instruct-2507'
+  'mistralai/Mistral-7B-Instruct-v0.3',
+  'microsoft/Phi-3.5-mini-instruct',
+  'HuggingFaceH4/zephyr-7b-beta'
 ];
 
 // ─── STATE ─────────────────────────────────────────────────────────────────
@@ -731,14 +757,12 @@ async function callHuggingFace(userText, imgBase64, imgMime) {
   const langNote = langInstructions[currentLang] || '';
   const systemContent = SYSTEM_INSTRUCTION + (langNote ? `\n\n${langNote}` : '');
 
-  // Build base messages
   const baseMessages = [{ role: 'system', content: systemContent }];
   const historySlice = conversationHistory.slice(-8);
   for (const turn of historySlice) {
     baseMessages.push({ role: turn.role, content: turn.content });
   }
 
-  // Build user content — image_url format for vision models, plain text otherwise
   let userContent;
   if (imgBase64) {
     userContent = [
@@ -754,7 +778,6 @@ async function callHuggingFace(userText, imgBase64, imgMime) {
 
   const messages = [...baseMessages, { role: 'user', content: userContent }];
 
-  // Try each model in the fallback chain
   let lastError = '';
   for (const model of HF_MODELS) {
     try {
@@ -771,48 +794,76 @@ async function callHuggingFace(userText, imgBase64, imgMime) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${HF_TOKEN}`,
-          'x-wait-for-model': 'true'
+          'Authorization': `Bearer ${HF_TOKEN.trim()}`
         },
         body: JSON.stringify(payload)
       });
 
-      // If model not available, try next
-      if (res.status === 404 || res.status === 422) {
-        const errData = await res.json().catch(() => ({}));
-        lastError = errData?.error?.message || errData?.error || `Model ${model} unavailable`;
-        console.warn(`Model ${model} failed (${res.status}), trying next...`);
+      const data = await res.json().catch(() => ({}));
+
+      // Auth error — no point trying other models
+      if (res.status === 401 || res.status === 403) {
+        const msg = data?.error?.message || data?.error || 'Invalid or expired token';
+        showTokenPrompt(msg);
+        throw new Error('🔑 Token invalid — please enter a valid HF token in the panel.');
+      }
+
+      // Model not available — try next
+      if (res.status === 404 || res.status === 422 || res.status === 400) {
+        lastError = data?.error?.message || data?.error || `Model ${model} not available`;
+        console.warn(`[HF] ${model} → ${res.status}: ${lastError}`);
         continue;
       }
 
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData?.error?.message || errData?.error || `HTTP ${res.status}`);
+        throw new Error(data?.error?.message || data?.error || `HTTP ${res.status}`);
       }
 
-      const data = await res.json();
       const reply = data?.choices?.[0]?.message?.content?.trim();
-      if (!reply) throw new Error('Empty response.');
+      if (!reply) throw new Error('Empty response from model.');
+
+      // Update badge with active model name
+      const shortName = model.split('/')[1] || model;
+      const badge = document.getElementById('model-badge');
+      if (badge) badge.innerHTML = `🤗 Powered by <span>Hugging Face</span> · ${shortName}`;
+
       return reply;
 
     } catch (e) {
-      // If it's a network/parse error (not a graceful 404), rethrow
-      if (!lastError || e.message !== lastError) {
-        lastError = e.message;
-      }
-      // Continue to next model only for "not supported" type errors
-      if (e.message.toLowerCase().includes('not supported') ||
-          e.message.toLowerCase().includes('not found') ||
-          e.message.toLowerCase().includes('unavailable') ||
-          e.message.toLowerCase().includes('no provider')) {
-        console.warn(`Model ${model} error: ${e.message}, trying next...`);
-        continue;
-      }
+      if (e.message.includes('Token invalid') || e.message.includes('🔑')) throw e;
+      lastError = e.message;
+      const isSkippable = /not supported|not found|unavailable|no provider|not available|422|400|404/i.test(e.message);
+      if (isSkippable) { console.warn(`[HF] Skipping ${model}: ${e.message}`); continue; }
       throw e;
     }
   }
+  throw new Error(`All models unavailable. Last: ${lastError}`);
+}
 
-  throw new Error(`All models unavailable. Last error: ${lastError}`);
+// ─── TOKEN PROMPT ──────────────────────────────────────────────────────────
+function showTokenPrompt(reason) {
+  // Open settings and scroll to token field
+  openSettings();
+  setTimeout(() => {
+    const el = document.getElementById('hf-token-field');
+    if (el) { el.focus(); el.select(); el.style.borderColor = '#ef4444'; }
+  }, 300);
+}
+
+function saveToken() {
+  const val = document.getElementById('hf-token-field').value.trim();
+  if (!val.startsWith('hf_')) {
+    alert('HF tokens start with "hf_" — please check and try again.');
+    return;
+  }
+  HF_TOKEN = val;
+  localStorage.setItem('hf_token', val);
+  const el = document.getElementById('hf-token-field');
+  el.style.borderColor = '#22c55e';
+  el.style.boxShadow = '0 0 0 3px rgba(34,197,94,0.2)';
+  setTimeout(() => { el.style.borderColor = ''; el.style.boxShadow = ''; }, 2000);
+  closeSettings();
+  addBotMessage('✅ **Token updated!** You can now start chatting. Ask me anything about your health and nutrition! 🌿');
 }
 
 // ─── BOT MESSAGE ──────────────────────────────────────────────────────────
