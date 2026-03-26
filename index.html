@@ -52,7 +52,6 @@
     transition: background 0.3s, color 0.3s;
   }
 
-  /* BG image overlay */
   #bg-overlay {
     position: fixed; inset: 0; z-index: 0;
     background-size: cover; background-position: center;
@@ -242,11 +241,16 @@
   }
   .chip:hover { background: var(--surface2); transform: translateY(-1px); }
 
-  /* Image preview in upload */
-  .uploaded-img-preview {
-    max-width: 200px; border-radius: 10px; margin-bottom: 8px;
-    border: 2px solid var(--accent);
+  /* Image upload preview in input */
+  .img-preview-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px 4px;
+    background: var(--surface); border-radius: 10px 10px 0 0;
+    border: 1px solid var(--border); border-bottom: none;
+    font-size: 12px; color: var(--text2);
   }
+  .img-preview-row img { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; }
+  .remove-img { background: none; border: none; cursor: pointer; color: var(--text3); font-size: 14px; }
 
   /* INPUT AREA */
   .input-area {
@@ -296,6 +300,15 @@
     font-size: 11px; color: var(--text3); margin-top: 8px;
     text-align: center;
   }
+
+  /* Powered by badge */
+  .powered-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 10px; color: var(--text3);
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 20px; padding: 3px 10px; margin-top: 6px;
+  }
+  .powered-badge span { color: #4285f4; font-weight: 600; }
 
   /* SETTINGS PANEL */
   .settings-panel {
@@ -391,7 +404,6 @@
   }
   .custom-bg-btn:hover { color: var(--accent); border-color: var(--accent); }
 
-  /* overlay backdrop */
   .backdrop {
     position: fixed; inset: 0; background: rgba(0,0,0,0.5);
     z-index: 99; opacity: 0; pointer-events: none;
@@ -432,24 +444,14 @@
   .msg-bubble b, .msg-bubble strong { color: var(--accent); }
   .msg-bubble ul { padding-left: 18px; margin: 6px 0; }
   .msg-bubble li { margin: 3px 0; }
-  .msg-bubble .health-tag {
-    display: inline-block; padding: 2px 8px; border-radius: 6px;
-    background: rgba(0,212,170,0.15); color: var(--accent);
-    font-size: 12px; margin: 2px;
+
+  /* Error bubble */
+  .error-bubble {
+    background: rgba(239,68,68,0.1) !important;
+    border-color: rgba(239,68,68,0.3) !important;
+    color: #fca5a5;
   }
 
-  /* Image upload preview in input */
-  .img-preview-row {
-    display: flex; align-items: center; gap: 8px;
-    padding: 8px 12px 4px;
-    background: var(--surface); border-radius: 10px 10px 0 0;
-    border: 1px solid var(--border); border-bottom: none;
-    font-size: 12px; color: var(--text2);
-  }
-  .img-preview-row img { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; }
-  .remove-img { background: none; border: none; cursor: pointer; color: var(--text3); font-size: 14px; }
-
-  /* Language direction */
   [dir="rtl"] .msg-row { flex-direction: row-reverse; }
   [dir="rtl"] .msg-row.user { flex-direction: row; }
 
@@ -480,13 +482,14 @@
     <button class="quick-topic" onclick="quickTopic('What are the health benefits of common vegetables?')"><span class="emoji">🥦</span> Vegetables & Benefits</button>
     <button class="quick-topic" onclick="quickTopic('What are common symptoms of diabetes and how to manage it?')"><span class="emoji">🩺</span> Common Conditions</button>
     <button class="quick-topic" onclick="quickTopic('What foods should I eat for a strong immune system?')"><span class="emoji">🛡️</span> Immunity Boosters</button>
-    <button class="quick-topic" onclick="quickTopic('Show me healthy breakfast ideas with images')"><span class="emoji">🍳</span> Meal Ideas</button>
+    <button class="quick-topic" onclick="quickTopic('Show me healthy breakfast ideas')"><span class="emoji">🍳</span> Meal Ideas</button>
     <button class="quick-topic" onclick="quickTopic('What vitamins and minerals are essential for daily health?')"><span class="emoji">💊</span> Vitamins & Minerals</button>
     <button class="quick-topic" onclick="quickTopic('Give me a 7-day meal plan for heart health')"><span class="emoji">❤️</span> Heart Health</button>
     <button class="quick-topic" onclick="quickTopic('What are the best exercises for mental health?')"><span class="emoji">🧠</span> Mental Wellness</button>
   </div>
 
   <div class="sidebar-bottom">
+    <div class="powered-badge">⚡ Powered by <span>Google Gemini</span></div>
     <button class="settings-btn" onclick="openSettings()">⚙️ &nbsp; Settings & Preferences</button>
     <button class="settings-btn">📋 &nbsp; Health Disclaimer</button>
   </div>
@@ -501,7 +504,7 @@
     </div>
     <div class="chat-header-info">
       <h2>VitaChat Health AI</h2>
-      <p>Your personal health companion • Always online</p>
+      <p>Powered by Google Gemini • Always online</p>
     </div>
     <div class="header-actions">
       <button class="icon-btn" title="Toggle theme" onclick="toggleTheme()">☀️</button>
@@ -510,18 +513,17 @@
   </header>
 
   <div class="messages-wrap" id="messages">
-    <!-- Welcome shown initially -->
     <div class="welcome" id="welcome-screen">
       <div class="welcome-icon">🌿</div>
       <h1>Your <span>Health</span> Companion</h1>
-      <p>Ask me anything about nutrition, diet plans, common health conditions, food benefits, and wellness tips. I'm here to guide your journey to better health.</p>
+      <p>Ask me anything about nutrition, diet plans, common health conditions, food benefits, and wellness tips. Powered by Google Gemini AI.</p>
       <div class="welcome-chips">
         <button class="welcome-chip" onclick="quickTopic('What should I eat for better energy throughout the day?')">⚡ Energy foods</button>
         <button class="welcome-chip" onclick="quickTopic('Explain the benefits of a Mediterranean diet')">🫒 Mediterranean diet</button>
         <button class="welcome-chip" onclick="quickTopic('What are the warning signs of high blood pressure?')">🩸 Blood pressure signs</button>
-        <button class="welcome-chip" onclick="quickTopic('Show me foods high in iron with their images')">🥩 Iron-rich foods</button>
+        <button class="welcome-chip" onclick="quickTopic('What foods are high in iron?')">🥩 Iron-rich foods</button>
         <button class="welcome-chip" onclick="quickTopic('What is the importance of drinking enough water daily?')">💧 Hydration facts</button>
-        <button class="welcome-chip" onclick="quickTopic('Give me a anti-inflammatory diet guide')">🌱 Anti-inflammatory diet</button>
+        <button class="welcome-chip" onclick="quickTopic('Give me an anti-inflammatory diet guide')">🌱 Anti-inflammatory diet</button>
       </div>
     </div>
   </div>
@@ -561,8 +563,8 @@
     <div class="setting-group">
       <label>Theme</label>
       <div class="theme-btns">
-        <button class="theme-btn light active" id="btn-light" onclick="setTheme('light')">☀️ Light</button>
-        <button class="theme-btn dark" id="btn-dark" onclick="setTheme('dark')">🌙 Dark</button>
+        <button class="theme-btn light" id="btn-light" onclick="setTheme('light')">☀️ Light</button>
+        <button class="theme-btn dark active" id="btn-dark" onclick="setTheme('dark')">🌙 Dark</button>
       </div>
     </div>
 
@@ -621,29 +623,33 @@
 </div>
 
 <script>
+// ─── CONFIG ────────────────────────────────────────────────────────────────
+const GEMINI_API_KEY = 'AIzaSyAC3_y0jd5bIqTIPF3KN5DztWgCXK02AxM';
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+
 // ─── STATE ─────────────────────────────────────────────────────────────────
 let pendingImage = null;
 let pendingImageBase64 = null;
+let pendingImageMime = 'image/jpeg';
 let currentLang = 'en';
-let isTyping = false;
+let conversationHistory = [];
 
-const API_SYSTEM = `You are VitaChat, a friendly and knowledgeable AI health companion. You ONLY discuss health-related topics including:
+const SYSTEM_INSTRUCTION = `You are VitaChat, a friendly and knowledgeable AI health companion. You ONLY discuss health-related topics including:
 - Nutrition, diet plans, and healthy eating
-- Food benefits, vegetables, fruits, and their importance
-- Common health conditions, symptoms, causes, and solutions
+- Food benefits, vegetables, fruits, and their nutritional value
+- Common health conditions, symptoms, causes, and management
 - Vitamins, minerals, and supplements
 - Exercise and physical wellness
 - Mental health and wellness tips
 - Hydration and sleep health
-- Weight management
+- Weight management and healthy lifestyle
 
-When relevant, format your responses with clear structure using bold headers (using **text**), bullet points, and organized sections. 
+When relevant, format your responses with clear structure using bold headers (using **text**), bullet points, and organized sections.
 When discussing foods, mention their nutritional value enthusiastically.
-If asked about food images, acknowledge you can describe them vividly since you're a text AI, but encourage the user to share images for analysis.
-If the user uploads an image of food, analyze it from a nutritional health perspective.
+If the user uploads an image of food, analyze it thoroughly from a nutritional health perspective.
 Always be warm, encouraging, and motivating about health journeys.
-REFUSE any non-health topics politely and redirect to health.
-Keep responses helpful, accurate, and appropriately concise (not too long unless detailed info is requested).`;
+REFUSE any non-health topics politely and redirect to health topics.
+Keep responses helpful, accurate, and appropriately concise.`;
 
 // ─── LANGUAGE PROMPTS ─────────────────────────────────────────────────────
 const langInstructions = {
@@ -657,14 +663,14 @@ const langInstructions = {
   hi: 'हिंदी में जवाब दें।'
 };
 
-// ─── SEND MESSAGE ─────────────────────────────────────────────────────────
+// ─── SEND MESSAGE ──────────────────────────────────────────────────────────
 async function sendMessage() {
   const input = document.getElementById('chat-input');
   const text = input.value.trim();
   if (!text && !pendingImage) return;
 
   hideWelcome();
-  const messages = document.getElementById('messages');
+  const messagesEl = document.getElementById('messages');
 
   // Build user bubble
   const userRow = document.createElement('div');
@@ -681,79 +687,152 @@ async function sendMessage() {
       <div class="msg-time">${getTime()}</div>
     </div>
     <div class="msg-avatar user">🙂</div>`;
-  messages.appendChild(userRow);
+  messagesEl.appendChild(userRow);
 
+  // Capture & clear
   const userText = text;
-  const userImage = pendingImageBase64;
+  const imgBase64 = pendingImageBase64;
+  const imgMime = pendingImageMime;
   input.value = '';
   input.style.height = '';
   removeImage();
   scrollBottom();
 
-  // Typing indicator
+  // Add to history (text only for history tracking)
+  if (userText) {
+    conversationHistory.push({ role: 'user', text: userText });
+  }
+
+  // Show typing
   const typingRow = addTyping();
 
   try {
-    const response = await callClaude(userText, userImage);
+    const reply = await callGemini(userText, imgBase64, imgMime);
     typingRow.remove();
-    addBotMessage(response);
+    addBotMessage(reply);
+    conversationHistory.push({ role: 'model', text: reply });
+    // Keep history manageable
+    if (conversationHistory.length > 20) conversationHistory = conversationHistory.slice(-20);
   } catch (e) {
     typingRow.remove();
-    addBotMessage("I'm having trouble connecting right now. Please check your internet connection and try again. 🌿");
+    const errMsg = e.message || 'Unknown error';
+    addBotMessage(`⚠️ **Connection issue:** ${errMsg}\n\nPlease check your internet connection and try again. 🌿`, true);
+    console.error('Gemini API Error:', e);
   }
 }
 
-async function callClaude(userText, imageBase64) {
+// ─── CALL GEMINI API ───────────────────────────────────────────────────────
+async function callGemini(userText, imgBase64, imgMime) {
   const langNote = langInstructions[currentLang] || '';
-  const systemPrompt = API_SYSTEM + (langNote ? `\n\n${langNote}` : '');
+  const fullSystem = SYSTEM_INSTRUCTION + (langNote ? `\n\n${langNote}` : '');
 
-  let content = [];
-  if (imageBase64) {
-    const mimeMatch = imageBase64.match(/^data:(image\/\w+);base64,/);
-    const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-    const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-    content.push({ type: 'image', source: { type: 'base64', media_type: mimeType, data: base64Data } });
-  }
-  if (userText) {
-    content.push({ type: 'text', text: userText || 'Please analyze this image from a nutritional and health perspective.' });
-  }
-  if (content.length === 0) content.push({ type: 'text', text: 'Hello!' });
+  // Build contents array for multi-turn conversation
+  const contents = [];
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  // Add conversation history (last few turns)
+  const historyToSend = conversationHistory.slice(-8); // last 4 exchanges
+  for (const turn of historyToSend) {
+    contents.push({
+      role: turn.role,
+      parts: [{ text: turn.text }]
+    });
+  }
+
+  // Build current user message parts
+  const userParts = [];
+
+  if (imgBase64) {
+    // Strip the data URI prefix to get raw base64
+    const rawBase64 = imgBase64.replace(/^data:image\/\w+;base64,/, '');
+    userParts.push({
+      inline_data: {
+        mime_type: imgMime,
+        data: rawBase64
+      }
+    });
+  }
+
+  userParts.push({
+    text: userText || 'Please analyze this image from a nutritional and health perspective.'
+  });
+
+  contents.push({
+    role: 'user',
+    parts: userParts
+  });
+
+  const payload = {
+    system_instruction: {
+      parts: [{ text: fullSystem }]
+    },
+    contents: contents,
+    generationConfig: {
+      temperature: 0.7,
+      topK: 40,
+      topP: 0.95,
+      maxOutputTokens: 1024
+    },
+    safetySettings: [
+      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' }
+    ]
+  };
+
+  const res = await fetch(GEMINI_API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1000,
-      system: systemPrompt,
-      messages: [{ role: 'user', content }]
-    })
+    body: JSON.stringify(payload)
   });
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    const msg = errData?.error?.message || `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+
   const data = await res.json();
-  if (data.error) throw new Error(data.error.message);
-  return data.content?.[0]?.text || 'Sorry, I could not generate a response.';
+
+  // Handle blocked content
+  if (data.promptFeedback?.blockReason) {
+    throw new Error(`Content blocked: ${data.promptFeedback.blockReason}`);
+  }
+
+  const candidate = data.candidates?.[0];
+  if (!candidate) throw new Error('No response generated.');
+
+  if (candidate.finishReason === 'SAFETY') {
+    throw new Error('Response blocked by safety filters.');
+  }
+
+  const text = candidate.content?.parts?.map(p => p.text || '').join('') || '';
+  if (!text) throw new Error('Empty response from Gemini.');
+
+  return text;
 }
 
-function addBotMessage(text) {
-  const messages = document.getElementById('messages');
+// ─── BOT MESSAGE ──────────────────────────────────────────────────────────
+function addBotMessage(text, isError = false) {
+  const messagesEl = document.getElementById('messages');
   const row = document.createElement('div');
   row.className = 'msg-row bot';
 
   const formatted = formatText(text);
-  const chips = getSuggestionChips(text);
+  const chips = isError ? '' : getSuggestionChips(text);
 
   row.innerHTML = `
     <div class="msg-avatar bot">🌿</div>
     <div class="msg-content">
-      <div class="msg-bubble">${formatted}${chips}</div>
+      <div class="msg-bubble ${isError ? 'error-bubble' : ''}">${formatted}${chips}</div>
       <div class="msg-time">VitaChat • ${getTime()}</div>
     </div>`;
-  messages.appendChild(row);
+  messagesEl.appendChild(row);
   scrollBottom();
 }
 
 function addTyping() {
-  const messages = document.getElementById('messages');
+  const messagesEl = document.getElementById('messages');
   const row = document.createElement('div');
   row.className = 'msg-row bot';
   row.innerHTML = `
@@ -765,25 +844,27 @@ function addTyping() {
         </div>
       </div>
     </div>`;
-  messages.appendChild(row);
+  messagesEl.appendChild(row);
   scrollBottom();
   return row;
 }
 
+// ─── SUGGESTION CHIPS ─────────────────────────────────────────────────────
 function getSuggestionChips(text) {
   const suggestions = [];
-  if (/diet|food|eat/i.test(text)) suggestions.push('📊 Show nutritional data', '🍽️ More meal ideas');
+  if (/diet|food|eat/i.test(text)) suggestions.push('📊 Nutritional breakdown', '🍽️ More meal ideas');
   if (/vitamin|mineral/i.test(text)) suggestions.push('💊 Daily recommended values');
   if (/condition|symptom|disease/i.test(text)) suggestions.push('🩺 Prevention tips', '💬 Related conditions');
   if (/vegetable|fruit/i.test(text)) suggestions.push('🥗 Recipe suggestions');
-
-  if (suggestions.length === 0) return '';
+  if (/exercise|workout/i.test(text)) suggestions.push('🏃 Workout plan', '🧘 Recovery tips');
+  if (!suggestions.length) return '';
   const chipsHTML = suggestions.slice(0, 3).map(s =>
-    `<button class="chip" onclick="quickTopic('${s.replace(/['"]/g,'')}')">${s}</button>`
+    `<button class="chip" onclick="quickTopic('${s.replace(/'/g, "\\'")}')">${s}</button>`
   ).join('');
   return `<div class="chips-wrap">${chipsHTML}</div>`;
 }
 
+// ─── FORMAT TEXT ──────────────────────────────────────────────────────────
 function formatText(text) {
   return text
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
@@ -792,15 +873,16 @@ function formatText(text) {
     .replace(/^## (.+)$/gm, '<strong style="font-size:16px;display:block;margin:12px 0 6px">$1</strong>')
     .replace(/^# (.+)$/gm, '<strong style="font-size:18px;display:block;margin:12px 0 6px">$1</strong>')
     .replace(/^- (.+)$/gm, '<li>$1</li>')
-    .replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')
+    .replace(/(<li>.*?<\/li>(\s*<li>.*?<\/li>)*)/gs, '<ul>$1</ul>')
     .replace(/\n\n/g, '<br><br>')
     .replace(/\n/g, '<br>');
 }
 
-// ─── IMAGE UPLOAD ──────────────────────────────────────────────────────────
+// ─── IMAGE UPLOAD ─────────────────────────────────────────────────────────
 function handleImageUpload(event) {
   const file = event.target.files[0];
   if (!file) return;
+  pendingImageMime = file.type || 'image/jpeg';
   const reader = new FileReader();
   reader.onload = (e) => {
     pendingImage = e.target.result;
@@ -823,7 +905,6 @@ function removeImage() {
 function openSettings() {
   document.getElementById('settings-panel').classList.add('open');
   document.getElementById('backdrop').classList.add('show');
-  // sync theme buttons
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   document.getElementById('btn-dark').classList.toggle('active', isDark);
   document.getElementById('btn-light').classList.toggle('active', !isDark);
@@ -832,7 +913,6 @@ function closeSettings() {
   document.getElementById('settings-panel').classList.remove('open');
   document.getElementById('backdrop').classList.remove('show');
 }
-
 function setTheme(t) {
   document.documentElement.setAttribute('data-theme', t);
   document.getElementById('btn-dark').classList.toggle('active', t === 'dark');
@@ -843,7 +923,6 @@ function toggleTheme() {
   const current = document.documentElement.getAttribute('data-theme');
   setTheme(current === 'dark' ? 'light' : 'dark');
 }
-
 function setFont(val) {
   document.documentElement.style.setProperty('--font-family', val);
 }
@@ -851,16 +930,12 @@ function setFontSize(val) {
   document.documentElement.style.setProperty('--font-size', val + 'px');
   document.getElementById('font-size-val').textContent = val + 'px';
 }
-
 function setLanguage(lang) {
   currentLang = lang;
-  const dir = lang === 'ar' ? 'rtl' : 'ltr';
-  document.documentElement.setAttribute('dir', dir);
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
 }
-
 function setBg(url) {
   const overlay = document.getElementById('bg-overlay');
-  // reset all bg-opt active states
   document.querySelectorAll('.bg-opt').forEach(el => el.classList.remove('active'));
   if (!url) {
     overlay.style.backgroundImage = '';
@@ -869,16 +944,8 @@ function setBg(url) {
   } else {
     overlay.style.backgroundImage = `url('${url}')`;
     overlay.classList.add('active');
-    // find which one
-    document.querySelectorAll('.bg-opt').forEach(el => {
-      const style = el.getAttribute('style') || '';
-      if (style.includes(url.substring(0,40)) || (el.onclick && el.onclick.toString().includes(url.substring(0,40)))) {
-        el.classList.add('active');
-      }
-    });
   }
 }
-
 function handleCustomBg(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -891,30 +958,32 @@ function handleCustomBg(event) {
   reader.readAsDataURL(file);
 }
 
-// ─── HELPERS ───────────────────────────────────────────────────────────────
+// ─── HELPERS ──────────────────────────────────────────────────────────────
 function quickTopic(topic) {
   document.getElementById('chat-input').value = topic;
   sendMessage();
 }
+
 function newChat() {
-  const messages = document.getElementById('messages');
-  messages.innerHTML = '';
-  // re-add welcome
+  conversationHistory = [];
+  const messagesEl = document.getElementById('messages');
+  messagesEl.innerHTML = '';
   const welcome = document.createElement('div');
   welcome.id = 'welcome-screen';
   welcome.className = 'welcome';
   welcome.innerHTML = `
     <div class="welcome-icon">🌿</div>
     <h1>Your <span>Health</span> Companion</h1>
-    <p>Ask me anything about nutrition, diet plans, common health conditions, food benefits, and wellness tips.</p>
+    <p>Ask me anything about nutrition, diet plans, common health conditions, food benefits, and wellness tips. Powered by Google Gemini AI.</p>
     <div class="welcome-chips">
       <button class="welcome-chip" onclick="quickTopic('What should I eat for better energy throughout the day?')">⚡ Energy foods</button>
       <button class="welcome-chip" onclick="quickTopic('Explain the benefits of a Mediterranean diet')">🫒 Mediterranean diet</button>
       <button class="welcome-chip" onclick="quickTopic('What are the warning signs of high blood pressure?')">🩸 Blood pressure signs</button>
-      <button class="welcome-chip" onclick="quickTopic('Show me foods high in iron with their images')">🥩 Iron-rich foods</button>
+      <button class="welcome-chip" onclick="quickTopic('What foods are high in iron?')">🥩 Iron-rich foods</button>
     </div>`;
-  messages.appendChild(welcome);
+  messagesEl.appendChild(welcome);
 }
+
 function hideWelcome() {
   const w = document.getElementById('welcome-screen');
   if (w) w.remove();
@@ -930,12 +999,9 @@ function handleKey(e) {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
 }
 function autoResize(el) {
-  el.style.height = ''; el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  el.style.height = '';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
 }
-
-// Init dark theme active
-document.getElementById('btn-dark').classList.add('active');
-document.getElementById('btn-light').classList.remove('active');
 </script>
 </body>
 </html>
