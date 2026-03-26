@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>VitaChat — AI Health Companion</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0a0f1a;
+    --bg2: #111827;
+    --bg3: #1a2235;
+    --surface: #1e2d3d;
+    --surface2: #243447;
+    --border: rgba(255,255,255,0.07);
+    --accent: #00d4aa;
+    --accent2: #00a8ff;
+    --accent3: #7c3aed;
+    --text: #f0f4f8;
+    --text2: #94a3b8;
+    --text3: #64748b;
+    --user-bubble: linear-gradient(135deg, #00d4aa, #00a8ff);
+    --bot-bubble: #1e2d3d;
+    --shadow: 0 8px 32px rgba(0,0,0,0.4);
+    --radius: 18px;
+    --font-size: 15px;
+    --font-family: 'Outfit', sans-serif;
+  }
+  [data-theme="light"] {
+    --bg: #f0f4f8;
+    --bg2: #e2e8f0;
+    --bg3: #cbd5e1;
+    --surface: #ffffff;
+    --surface2: #f8fafc;
+    --border: rgba(0,0,0,0.08);
+    --text: #0f172a;
+    --text2: #475569;
+    --text3: #94a3b8;
+    --bot-bubble: #ffffff;
+    --shadow: 0 8px 32px rgba(0,0,0,0.1);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; font-family: var(--font-family); font-size: var(--font-size); }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+    transition: background 0.3s, color 0.3s;
+  }
+
+  /* BG image overlay */
+  #bg-overlay {
+    position: fixed; inset: 0; z-index: 0;
+    background-size: cover; background-position: center;
+    opacity: 0; transition: opacity 0.5s;
+    pointer-events: none;
+  }
+  #bg-overlay.active { opacity: 0.12; }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 280px; min-width: 280px;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    z-index: 10; position: relative;
+    transition: background 0.3s;
+  }
+  .sidebar-header {
+    padding: 24px 20px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px; letter-spacing: -0.5px;
+    color: var(--text);
+  }
+  .logo-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: linear-gradient(135deg, #00d4aa, #00a8ff);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .logo span { color: var(--accent); }
+
+  .new-chat-btn {
+    margin: 16px 20px 0;
+    padding: 10px 16px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none; border-radius: 12px;
+    color: #0a0f1a; font-weight: 600; font-size: 14px;
+    cursor: pointer; display: flex; align-items: center; gap: 8px;
+    transition: opacity 0.2s, transform 0.15s;
+    font-family: var(--font-family);
+  }
+  .new-chat-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+  .sidebar-section { padding: 16px 20px 8px; }
+  .sidebar-section-title {
+    font-size: 11px; font-weight: 600; letter-spacing: 1.2px;
+    text-transform: uppercase; color: var(--text3); margin-bottom: 10px;
+  }
+
+  .quick-topic {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border-radius: 10px; cursor: pointer;
+    font-size: 13px; color: var(--text2);
+    transition: background 0.15s, color 0.15s;
+    border: none; background: transparent; width: 100%; text-align: left;
+    font-family: var(--font-family);
+  }
+  .quick-topic:hover { background: var(--surface); color: var(--text); }
+  .quick-topic .emoji { font-size: 16px; }
+
+  .sidebar-bottom {
+    margin-top: auto; padding: 16px 20px;
+    border-top: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .settings-btn {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border-radius: 10px;
+    cursor: pointer; font-size: 13px; color: var(--text2);
+    background: none; border: none; width: 100%; text-align: left;
+    font-family: var(--font-family); transition: background 0.15s, color 0.15s;
+  }
+  .settings-btn:hover { background: var(--surface); color: var(--text); }
+
+  /* MAIN CHAT */
+  .main {
+    flex: 1; display: flex; flex-direction: column;
+    z-index: 5; position: relative; overflow: hidden;
+  }
+
+  .chat-header {
+    padding: 16px 24px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 14px;
+    transition: background 0.3s;
+  }
+  .bot-avatar {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: linear-gradient(135deg, #00d4aa, #7c3aed);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0; position: relative;
+  }
+  .bot-status {
+    position: absolute; bottom: 1px; right: 1px;
+    width: 10px; height: 10px; border-radius: 50%;
+    background: #22c55e; border: 2px solid var(--bg2);
+  }
+  .chat-header-info h2 { font-size: 15px; font-weight: 600; }
+  .chat-header-info p { font-size: 12px; color: var(--text2); }
+  .header-actions { margin-left: auto; display: flex; gap: 8px; }
+  .icon-btn {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: var(--surface); border: 1px solid var(--border);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: 16px; color: var(--text2); transition: background 0.15s, color 0.15s;
+  }
+  .icon-btn:hover { background: var(--surface2); color: var(--text); }
+
+  /* MESSAGES */
+  .messages-wrap {
+    flex: 1; overflow-y: auto; padding: 24px;
+    display: flex; flex-direction: column; gap: 16px;
+    scroll-behavior: smooth;
+  }
+  .messages-wrap::-webkit-scrollbar { width: 4px; }
+  .messages-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .msg-row { display: flex; gap: 10px; animation: fadeUp 0.3s ease; }
+  .msg-row.user { flex-direction: row-reverse; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .msg-avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    flex-shrink: 0; display: flex; align-items: center;
+    justify-content: center; font-size: 14px; margin-top: 4px;
+  }
+  .msg-avatar.bot { background: linear-gradient(135deg, #00d4aa, #7c3aed); }
+  .msg-avatar.user { background: linear-gradient(135deg, #00d4aa, #00a8ff); }
+
+  .msg-content { max-width: 72%; display: flex; flex-direction: column; gap: 4px; }
+  .msg-row.user .msg-content { align-items: flex-end; }
+
+  .msg-bubble {
+    padding: 12px 16px; border-radius: var(--radius);
+    line-height: 1.6; font-size: var(--font-size);
+    box-shadow: var(--shadow);
+  }
+  .bot .msg-bubble {
+    background: var(--bot-bubble);
+    border: 1px solid var(--border);
+    border-top-left-radius: 4px;
+  }
+  .user .msg-bubble {
+    background: var(--user-bubble);
+    color: #0a0f1a; font-weight: 500;
+    border-top-right-radius: 4px;
+  }
+
+  .msg-bubble img {
+    max-width: 100%; border-radius: 10px; margin-top: 8px;
+    display: block;
+  }
+  .msg-time { font-size: 11px; color: var(--text3); padding: 0 4px; }
+
+  /* Typing indicator */
+  .typing-indicator { display: flex; gap: 5px; padding: 14px 16px; align-items: center; }
+  .typing-indicator span {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent); opacity: 0.4;
+    animation: bounce 1.2s infinite;
+  }
+  .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+  .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-6px); opacity: 1; }
+  }
+
+  /* Suggestion chips */
+  .chips-wrap {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;
+  }
+  .chip {
+    padding: 6px 12px; border-radius: 20px; font-size: 12px;
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--accent); cursor: pointer; transition: background 0.15s, transform 0.1s;
+    font-family: var(--font-family);
+  }
+  .chip:hover { background: var(--surface2); transform: translateY(-1px); }
+
+  /* Image preview in upload */
+  .uploaded-img-preview {
+    max-width: 200px; border-radius: 10px; margin-bottom: 8px;
+    border: 2px solid var(--accent);
+  }
+
+  /* INPUT AREA */
+  .input-area {
+    padding: 16px 24px 20px;
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    transition: background 0.3s;
+  }
+  .input-wrap {
+    display: flex; align-items: flex-end; gap: 10px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 8px 12px;
+    transition: border-color 0.2s;
+  }
+  .input-wrap:focus-within { border-color: var(--accent); }
+
+  .input-actions-left { display: flex; gap: 4px; }
+  .input-icon-btn {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: none; border: none; cursor: pointer;
+    color: var(--text3); font-size: 16px; display: flex;
+    align-items: center; justify-content: center;
+    transition: color 0.15s, background 0.15s;
+  }
+  .input-icon-btn:hover { color: var(--accent); background: var(--surface2); }
+
+  #chat-input {
+    flex: 1; background: none; border: none; outline: none;
+    color: var(--text); font-family: var(--font-family);
+    font-size: var(--font-size); resize: none; max-height: 120px;
+    line-height: 1.5; padding: 4px 0;
+  }
+  #chat-input::placeholder { color: var(--text3); }
+
+  .send-btn {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none; cursor: pointer; display: flex;
+    align-items: center; justify-content: center;
+    font-size: 16px; color: #0a0f1a;
+    transition: opacity 0.2s, transform 0.15s;
+    flex-shrink: 0;
+  }
+  .send-btn:hover { opacity: 0.85; transform: scale(1.05); }
+
+  .input-hint {
+    font-size: 11px; color: var(--text3); margin-top: 8px;
+    text-align: center;
+  }
+
+  /* SETTINGS PANEL */
+  .settings-panel {
+    position: fixed; right: -380px; top: 0; bottom: 0;
+    width: 360px; background: var(--bg2);
+    border-left: 1px solid var(--border);
+    z-index: 100; transition: right 0.3s cubic-bezier(0.4,0,0.2,1);
+    display: flex; flex-direction: column;
+    box-shadow: -8px 0 40px rgba(0,0,0,0.3);
+  }
+  .settings-panel.open { right: 0; }
+
+  .settings-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .settings-header h3 { font-size: 16px; font-weight: 600; }
+
+  .settings-body { flex: 1; overflow-y: auto; padding: 20px 24px; }
+  .settings-body::-webkit-scrollbar { width: 4px; }
+  .settings-body::-webkit-scrollbar-thumb { background: var(--border); }
+
+  .setting-group { margin-bottom: 28px; }
+  .setting-group label {
+    display: block; font-size: 12px; font-weight: 600;
+    letter-spacing: 0.8px; text-transform: uppercase;
+    color: var(--text2); margin-bottom: 12px;
+  }
+
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0;
+  }
+  .toggle-label { font-size: 14px; color: var(--text); }
+  .toggle {
+    width: 44px; height: 24px; background: var(--bg3);
+    border-radius: 12px; cursor: pointer; position: relative;
+    border: 1px solid var(--border); transition: background 0.3s;
+  }
+  .toggle.on { background: var(--accent); }
+  .toggle::after {
+    content: ''; position: absolute; top: 3px; left: 3px;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: white; transition: left 0.3s;
+  }
+  .toggle.on::after { left: 23px; }
+
+  .theme-btns { display: flex; gap: 8px; }
+  .theme-btn {
+    flex: 1; padding: 8px; border-radius: 10px;
+    border: 2px solid var(--border); cursor: pointer;
+    font-size: 12px; font-weight: 500;
+    transition: border-color 0.15s, background 0.15s;
+    font-family: var(--font-family);
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .theme-btn.light { background: #f0f4f8; color: #0f172a; }
+  .theme-btn.dark { background: #0a0f1a; color: #f0f4f8; }
+  .theme-btn.active { border-color: var(--accent); }
+
+  .font-size-row { display: flex; align-items: center; gap: 10px; }
+  .font-size-row span { font-size: 13px; color: var(--text2); min-width: 30px; text-align: center; }
+  input[type=range] {
+    flex: 1; accent-color: var(--accent); height: 4px;
+  }
+
+  .font-select, .lang-select, .bg-select {
+    width: 100%; padding: 9px 12px; border-radius: 10px;
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); font-family: var(--font-family);
+    font-size: 13px; cursor: pointer; outline: none;
+    transition: border-color 0.2s;
+  }
+  .font-select:focus, .lang-select:focus, .bg-select:focus { border-color: var(--accent); }
+
+  .bg-options { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+  .bg-opt {
+    aspect-ratio: 16/9; border-radius: 8px; cursor: pointer;
+    border: 2px solid transparent; overflow: hidden;
+    transition: border-color 0.15s, transform 0.15s;
+    background-size: cover; background-position: center;
+  }
+  .bg-opt:hover { transform: scale(1.03); }
+  .bg-opt.active { border-color: var(--accent); }
+
+  .custom-bg-btn {
+    width: 100%; padding: 9px; margin-top: 10px;
+    border-radius: 10px; background: var(--surface);
+    border: 1px dashed var(--border); color: var(--text2);
+    font-size: 13px; cursor: pointer; font-family: var(--font-family);
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .custom-bg-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* overlay backdrop */
+  .backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    z-index: 99; opacity: 0; pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .backdrop.show { opacity: 1; pointer-events: all; }
+
+  /* Welcome screen */
+  .welcome {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; flex: 1; text-align: center;
+    padding: 40px; gap: 20px;
+  }
+  .welcome-icon {
+    width: 72px; height: 72px; border-radius: 22px;
+    background: linear-gradient(135deg, #00d4aa, #00a8ff, #7c3aed);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 36px; box-shadow: 0 16px 48px rgba(0,212,170,0.3);
+    animation: pulse 3s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 16px 48px rgba(0,212,170,0.3); }
+    50% { box-shadow: 0 16px 64px rgba(0,212,170,0.5); }
+  }
+  .welcome h1 { font-family: 'DM Serif Display', serif; font-size: 30px; }
+  .welcome h1 span { color: var(--accent); font-style: italic; }
+  .welcome p { color: var(--text2); max-width: 400px; line-height: 1.7; }
+  .welcome-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .welcome-chip {
+    padding: 8px 16px; border-radius: 20px; font-size: 13px;
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); cursor: pointer; transition: all 0.15s;
+    font-family: var(--font-family);
+  }
+  .welcome-chip:hover { background: var(--surface2); border-color: var(--accent); color: var(--accent); }
+
+  /* Markdown-like styling */
+  .msg-bubble b, .msg-bubble strong { color: var(--accent); }
+  .msg-bubble ul { padding-left: 18px; margin: 6px 0; }
+  .msg-bubble li { margin: 3px 0; }
+  .msg-bubble .health-tag {
+    display: inline-block; padding: 2px 8px; border-radius: 6px;
+    background: rgba(0,212,170,0.15); color: var(--accent);
+    font-size: 12px; margin: 2px;
+  }
+
+  /* Image upload preview in input */
+  .img-preview-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px 4px;
+    background: var(--surface); border-radius: 10px 10px 0 0;
+    border: 1px solid var(--border); border-bottom: none;
+    font-size: 12px; color: var(--text2);
+  }
+  .img-preview-row img { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; }
+  .remove-img { background: none; border: none; cursor: pointer; color: var(--text3); font-size: 14px; }
+
+  /* Language direction */
+  [dir="rtl"] .msg-row { flex-direction: row-reverse; }
+  [dir="rtl"] .msg-row.user { flex-direction: row; }
+
+  @media (max-width: 700px) {
+    .sidebar { display: none; }
+    .settings-panel { width: 100%; right: -100%; }
+  }
+</style>
+</head>
+<body>
+<div id="bg-overlay"></div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <div class="logo">
+      <div class="logo-icon">🌿</div>
+      Vita<span>Chat</span>
+    </div>
+  </div>
+  <button class="new-chat-btn" onclick="newChat()">
+    <span>✦</span> New Conversation
+  </button>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Quick Topics</div>
+    <button class="quick-topic" onclick="quickTopic('Show me a healthy diet plan for weight loss')"><span class="emoji">🥗</span> Diet Plans</button>
+    <button class="quick-topic" onclick="quickTopic('What are the health benefits of common vegetables?')"><span class="emoji">🥦</span> Vegetables & Benefits</button>
+    <button class="quick-topic" onclick="quickTopic('What are common symptoms of diabetes and how to manage it?')"><span class="emoji">🩺</span> Common Conditions</button>
+    <button class="quick-topic" onclick="quickTopic('What foods should I eat for a strong immune system?')"><span class="emoji">🛡️</span> Immunity Boosters</button>
+    <button class="quick-topic" onclick="quickTopic('Show me healthy breakfast ideas with images')"><span class="emoji">🍳</span> Meal Ideas</button>
+    <button class="quick-topic" onclick="quickTopic('What vitamins and minerals are essential for daily health?')"><span class="emoji">💊</span> Vitamins & Minerals</button>
+    <button class="quick-topic" onclick="quickTopic('Give me a 7-day meal plan for heart health')"><span class="emoji">❤️</span> Heart Health</button>
+    <button class="quick-topic" onclick="quickTopic('What are the best exercises for mental health?')"><span class="emoji">🧠</span> Mental Wellness</button>
+  </div>
+
+  <div class="sidebar-bottom">
+    <button class="settings-btn" onclick="openSettings()">⚙️ &nbsp; Settings & Preferences</button>
+    <button class="settings-btn">📋 &nbsp; Health Disclaimer</button>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+  <header class="chat-header">
+    <div class="bot-avatar">
+      🌿
+      <div class="bot-status"></div>
+    </div>
+    <div class="chat-header-info">
+      <h2>VitaChat Health AI</h2>
+      <p>Your personal health companion • Always online</p>
+    </div>
+    <div class="header-actions">
+      <button class="icon-btn" title="Toggle theme" onclick="toggleTheme()">☀️</button>
+      <button class="icon-btn" title="Settings" onclick="openSettings()">⚙️</button>
+    </div>
+  </header>
+
+  <div class="messages-wrap" id="messages">
+    <!-- Welcome shown initially -->
+    <div class="welcome" id="welcome-screen">
+      <div class="welcome-icon">🌿</div>
+      <h1>Your <span>Health</span> Companion</h1>
+      <p>Ask me anything about nutrition, diet plans, common health conditions, food benefits, and wellness tips. I'm here to guide your journey to better health.</p>
+      <div class="welcome-chips">
+        <button class="welcome-chip" onclick="quickTopic('What should I eat for better energy throughout the day?')">⚡ Energy foods</button>
+        <button class="welcome-chip" onclick="quickTopic('Explain the benefits of a Mediterranean diet')">🫒 Mediterranean diet</button>
+        <button class="welcome-chip" onclick="quickTopic('What are the warning signs of high blood pressure?')">🩸 Blood pressure signs</button>
+        <button class="welcome-chip" onclick="quickTopic('Show me foods high in iron with their images')">🥩 Iron-rich foods</button>
+        <button class="welcome-chip" onclick="quickTopic('What is the importance of drinking enough water daily?')">💧 Hydration facts</button>
+        <button class="welcome-chip" onclick="quickTopic('Give me a anti-inflammatory diet guide')">🌱 Anti-inflammatory diet</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Image preview before send -->
+  <div id="img-preview-row" class="img-preview-row" style="display:none; margin: 0 24px;">
+    <img id="img-preview-thumb" src="" alt="preview"/>
+    <span id="img-preview-name" style="flex:1"></span>
+    <button class="remove-img" onclick="removeImage()">✕</button>
+  </div>
+
+  <div class="input-area">
+    <div class="input-wrap">
+      <div class="input-actions-left">
+        <label for="img-upload" class="input-icon-btn" title="Upload image for analysis">
+          🖼️
+          <input type="file" id="img-upload" accept="image/*" style="display:none" onchange="handleImageUpload(event)"/>
+        </label>
+      </div>
+      <textarea id="chat-input" placeholder="Ask me about health, diet, nutrition..." rows="1"
+        onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+      <button class="send-btn" onclick="sendMessage()">➤</button>
+    </div>
+    <div class="input-hint">VitaChat provides general health information only — not medical advice. Consult a doctor for personal health concerns.</div>
+  </div>
+</main>
+
+<!-- SETTINGS PANEL -->
+<div class="backdrop" id="backdrop" onclick="closeSettings()"></div>
+<div class="settings-panel" id="settings-panel">
+  <div class="settings-header">
+    <h3>⚙️ Preferences</h3>
+    <button class="icon-btn" onclick="closeSettings()">✕</button>
+  </div>
+  <div class="settings-body">
+
+    <div class="setting-group">
+      <label>Theme</label>
+      <div class="theme-btns">
+        <button class="theme-btn light active" id="btn-light" onclick="setTheme('light')">☀️ Light</button>
+        <button class="theme-btn dark" id="btn-dark" onclick="setTheme('dark')">🌙 Dark</button>
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <label>Font Style</label>
+      <select class="font-select" onchange="setFont(this.value)">
+        <option value="'Outfit', sans-serif">Outfit (Default)</option>
+        <option value="'Georgia', serif">Georgia (Classic)</option>
+        <option value="'Courier New', monospace">Courier New (Mono)</option>
+        <option value="'Trebuchet MS', sans-serif">Trebuchet MS</option>
+        <option value="'Palatino', serif">Palatino (Elegant)</option>
+      </select>
+    </div>
+
+    <div class="setting-group">
+      <label>Font Size</label>
+      <div class="font-size-row">
+        <span>A</span>
+        <input type="range" min="12" max="20" value="15" oninput="setFontSize(this.value)"/>
+        <span style="font-size:20px">A</span>
+        <span id="font-size-val" style="min-width:40px">15px</span>
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <label>Language</label>
+      <select class="lang-select" onchange="setLanguage(this.value)">
+        <option value="en">🇬🇧 English</option>
+        <option value="fr">🇫🇷 French</option>
+        <option value="es">🇪🇸 Spanish</option>
+        <option value="de">🇩🇪 German</option>
+        <option value="ar">🇸🇦 Arabic (RTL)</option>
+        <option value="zh">🇨🇳 Chinese</option>
+        <option value="pt">🇧🇷 Portuguese</option>
+        <option value="hi">🇮🇳 Hindi</option>
+      </select>
+    </div>
+
+    <div class="setting-group">
+      <label>Background Image</label>
+      <div class="bg-options">
+        <div class="bg-opt active" id="bg-none" style="background: var(--bg2); display:flex; align-items:center; justify-content:center; color:var(--text3); font-size:12px" onclick="setBg('')">None</div>
+        <div class="bg-opt" style="background-image:url('https://images.unsplash.com/photo-1490818387583-1baba5e638af?w=300')" onclick="setBg('https://images.unsplash.com/photo-1490818387583-1baba5e638af?w=800')" id="bg-1"></div>
+        <div class="bg-opt" style="background-image:url('https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=300')" onclick="setBg('https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800')" id="bg-2"></div>
+        <div class="bg-opt" style="background-image:url('https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=300')" onclick="setBg('https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=800')" id="bg-3"></div>
+        <div class="bg-opt" style="background-image:url('https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=300')" onclick="setBg('https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800')" id="bg-4"></div>
+        <div class="bg-opt" style="background-image:url('https://images.unsplash.com/photo-1532938911079-1b06ac7ceec7?w=300')" onclick="setBg('https://images.unsplash.com/photo-1532938911079-1b06ac7ceec7?w=800')" id="bg-5"></div>
+      </div>
+      <label style="margin-top:12px">
+        <input type="file" accept="image/*" style="display:none" onchange="handleCustomBg(event)" id="custom-bg-input"/>
+        <span class="custom-bg-btn" onclick="document.getElementById('custom-bg-input').click()">📁 Upload custom background</span>
+      </label>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─── STATE ─────────────────────────────────────────────────────────────────
+let pendingImage = null;
+let pendingImageBase64 = null;
+let currentLang = 'en';
+let isTyping = false;
+
+const API_SYSTEM = `You are VitaChat, a friendly and knowledgeable AI health companion. You ONLY discuss health-related topics including:
+- Nutrition, diet plans, and healthy eating
+- Food benefits, vegetables, fruits, and their importance
+- Common health conditions, symptoms, causes, and solutions
+- Vitamins, minerals, and supplements
+- Exercise and physical wellness
+- Mental health and wellness tips
+- Hydration and sleep health
+- Weight management
+
+When relevant, format your responses with clear structure using bold headers (using **text**), bullet points, and organized sections. 
+When discussing foods, mention their nutritional value enthusiastically.
+If asked about food images, acknowledge you can describe them vividly since you're a text AI, but encourage the user to share images for analysis.
+If the user uploads an image of food, analyze it from a nutritional health perspective.
+Always be warm, encouraging, and motivating about health journeys.
+REFUSE any non-health topics politely and redirect to health.
+Keep responses helpful, accurate, and appropriately concise (not too long unless detailed info is requested).`;
+
+// ─── LANGUAGE PROMPTS ─────────────────────────────────────────────────────
+const langInstructions = {
+  en: 'Respond in English.',
+  fr: 'Réponds en français.',
+  es: 'Responde en español.',
+  de: 'Antworte auf Deutsch.',
+  ar: 'أجب باللغة العربية.',
+  zh: '用中文回答。',
+  pt: 'Responda em português.',
+  hi: 'हिंदी में जवाब दें।'
+};
+
+// ─── SEND MESSAGE ─────────────────────────────────────────────────────────
+async function sendMessage() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text && !pendingImage) return;
+
+  hideWelcome();
+  const messages = document.getElementById('messages');
+
+  // Build user bubble
+  const userRow = document.createElement('div');
+  userRow.className = 'msg-row user';
+  let bubbleHTML = '';
+  if (pendingImage) {
+    bubbleHTML += `<img src="${pendingImage}" alt="uploaded" style="max-width:200px;border-radius:10px;margin-bottom:8px;display:block"/>`;
+  }
+  if (text) bubbleHTML += formatText(text);
+
+  userRow.innerHTML = `
+    <div class="msg-content">
+      <div class="msg-bubble">${bubbleHTML}</div>
+      <div class="msg-time">${getTime()}</div>
+    </div>
+    <div class="msg-avatar user">🙂</div>`;
+  messages.appendChild(userRow);
+
+  const userText = text;
+  const userImage = pendingImageBase64;
+  input.value = '';
+  input.style.height = '';
+  removeImage();
+  scrollBottom();
+
+  // Typing indicator
+  const typingRow = addTyping();
+
+  try {
+    const response = await callClaude(userText, userImage);
+    typingRow.remove();
+    addBotMessage(response);
+  } catch (e) {
+    typingRow.remove();
+    addBotMessage("I'm having trouble connecting right now. Please check your internet connection and try again. 🌿");
+  }
+}
+
+async function callClaude(userText, imageBase64) {
+  const langNote = langInstructions[currentLang] || '';
+  const systemPrompt = API_SYSTEM + (langNote ? `\n\n${langNote}` : '');
+
+  let content = [];
+  if (imageBase64) {
+    const mimeMatch = imageBase64.match(/^data:(image\/\w+);base64,/);
+    const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+    const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+    content.push({ type: 'image', source: { type: 'base64', media_type: mimeType, data: base64Data } });
+  }
+  if (userText) {
+    content.push({ type: 'text', text: userText || 'Please analyze this image from a nutritional and health perspective.' });
+  }
+  if (content.length === 0) content.push({ type: 'text', text: 'Hello!' });
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      system: systemPrompt,
+      messages: [{ role: 'user', content }]
+    })
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  return data.content?.[0]?.text || 'Sorry, I could not generate a response.';
+}
+
+function addBotMessage(text) {
+  const messages = document.getElementById('messages');
+  const row = document.createElement('div');
+  row.className = 'msg-row bot';
+
+  const formatted = formatText(text);
+  const chips = getSuggestionChips(text);
+
+  row.innerHTML = `
+    <div class="msg-avatar bot">🌿</div>
+    <div class="msg-content">
+      <div class="msg-bubble">${formatted}${chips}</div>
+      <div class="msg-time">VitaChat • ${getTime()}</div>
+    </div>`;
+  messages.appendChild(row);
+  scrollBottom();
+}
+
+function addTyping() {
+  const messages = document.getElementById('messages');
+  const row = document.createElement('div');
+  row.className = 'msg-row bot';
+  row.innerHTML = `
+    <div class="msg-avatar bot">🌿</div>
+    <div class="msg-content">
+      <div class="msg-bubble" style="padding:4px 8px">
+        <div class="typing-indicator">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+    </div>`;
+  messages.appendChild(row);
+  scrollBottom();
+  return row;
+}
+
+function getSuggestionChips(text) {
+  const suggestions = [];
+  if (/diet|food|eat/i.test(text)) suggestions.push('📊 Show nutritional data', '🍽️ More meal ideas');
+  if (/vitamin|mineral/i.test(text)) suggestions.push('💊 Daily recommended values');
+  if (/condition|symptom|disease/i.test(text)) suggestions.push('🩺 Prevention tips', '💬 Related conditions');
+  if (/vegetable|fruit/i.test(text)) suggestions.push('🥗 Recipe suggestions');
+
+  if (suggestions.length === 0) return '';
+  const chipsHTML = suggestions.slice(0, 3).map(s =>
+    `<button class="chip" onclick="quickTopic('${s.replace(/['"]/g,'')}')">${s}</button>`
+  ).join('');
+  return `<div class="chips-wrap">${chipsHTML}</div>`;
+}
+
+function formatText(text) {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/^### (.+)$/gm, '<strong style="font-size:15px;display:block;margin:10px 0 4px">$1</strong>')
+    .replace(/^## (.+)$/gm, '<strong style="font-size:16px;display:block;margin:12px 0 6px">$1</strong>')
+    .replace(/^# (.+)$/gm, '<strong style="font-size:18px;display:block;margin:12px 0 6px">$1</strong>')
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')
+    .replace(/\n\n/g, '<br><br>')
+    .replace(/\n/g, '<br>');
+}
+
+// ─── IMAGE UPLOAD ──────────────────────────────────────────────────────────
+function handleImageUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    pendingImage = e.target.result;
+    pendingImageBase64 = e.target.result;
+    document.getElementById('img-preview-row').style.display = 'flex';
+    document.getElementById('img-preview-thumb').src = pendingImage;
+    document.getElementById('img-preview-name').textContent = file.name;
+  };
+  reader.readAsDataURL(file);
+  event.target.value = '';
+}
+
+function removeImage() {
+  pendingImage = null;
+  pendingImageBase64 = null;
+  document.getElementById('img-preview-row').style.display = 'none';
+}
+
+// ─── SETTINGS ─────────────────────────────────────────────────────────────
+function openSettings() {
+  document.getElementById('settings-panel').classList.add('open');
+  document.getElementById('backdrop').classList.add('show');
+  // sync theme buttons
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  document.getElementById('btn-dark').classList.toggle('active', isDark);
+  document.getElementById('btn-light').classList.toggle('active', !isDark);
+}
+function closeSettings() {
+  document.getElementById('settings-panel').classList.remove('open');
+  document.getElementById('backdrop').classList.remove('show');
+}
+
+function setTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('btn-dark').classList.toggle('active', t === 'dark');
+  document.getElementById('btn-light').classList.toggle('active', t === 'light');
+  document.querySelector('.icon-btn[title="Toggle theme"]').textContent = t === 'dark' ? '☀️' : '🌙';
+}
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  setTheme(current === 'dark' ? 'light' : 'dark');
+}
+
+function setFont(val) {
+  document.documentElement.style.setProperty('--font-family', val);
+}
+function setFontSize(val) {
+  document.documentElement.style.setProperty('--font-size', val + 'px');
+  document.getElementById('font-size-val').textContent = val + 'px';
+}
+
+function setLanguage(lang) {
+  currentLang = lang;
+  const dir = lang === 'ar' ? 'rtl' : 'ltr';
+  document.documentElement.setAttribute('dir', dir);
+}
+
+function setBg(url) {
+  const overlay = document.getElementById('bg-overlay');
+  // reset all bg-opt active states
+  document.querySelectorAll('.bg-opt').forEach(el => el.classList.remove('active'));
+  if (!url) {
+    overlay.style.backgroundImage = '';
+    overlay.classList.remove('active');
+    document.getElementById('bg-none').classList.add('active');
+  } else {
+    overlay.style.backgroundImage = `url('${url}')`;
+    overlay.classList.add('active');
+    // find which one
+    document.querySelectorAll('.bg-opt').forEach(el => {
+      const style = el.getAttribute('style') || '';
+      if (style.includes(url.substring(0,40)) || (el.onclick && el.onclick.toString().includes(url.substring(0,40)))) {
+        el.classList.add('active');
+      }
+    });
+  }
+}
+
+function handleCustomBg(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    document.getElementById('bg-overlay').style.backgroundImage = `url('${e.target.result}')`;
+    document.getElementById('bg-overlay').classList.add('active');
+    document.querySelectorAll('.bg-opt').forEach(el => el.classList.remove('active'));
+  };
+  reader.readAsDataURL(file);
+}
+
+// ─── HELPERS ───────────────────────────────────────────────────────────────
+function quickTopic(topic) {
+  document.getElementById('chat-input').value = topic;
+  sendMessage();
+}
+function newChat() {
+  const messages = document.getElementById('messages');
+  messages.innerHTML = '';
+  // re-add welcome
+  const welcome = document.createElement('div');
+  welcome.id = 'welcome-screen';
+  welcome.className = 'welcome';
+  welcome.innerHTML = `
+    <div class="welcome-icon">🌿</div>
+    <h1>Your <span>Health</span> Companion</h1>
+    <p>Ask me anything about nutrition, diet plans, common health conditions, food benefits, and wellness tips.</p>
+    <div class="welcome-chips">
+      <button class="welcome-chip" onclick="quickTopic('What should I eat for better energy throughout the day?')">⚡ Energy foods</button>
+      <button class="welcome-chip" onclick="quickTopic('Explain the benefits of a Mediterranean diet')">🫒 Mediterranean diet</button>
+      <button class="welcome-chip" onclick="quickTopic('What are the warning signs of high blood pressure?')">🩸 Blood pressure signs</button>
+      <button class="welcome-chip" onclick="quickTopic('Show me foods high in iron with their images')">🥩 Iron-rich foods</button>
+    </div>`;
+  messages.appendChild(welcome);
+}
+function hideWelcome() {
+  const w = document.getElementById('welcome-screen');
+  if (w) w.remove();
+}
+function getTime() {
+  return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+function scrollBottom() {
+  const m = document.getElementById('messages');
+  setTimeout(() => m.scrollTop = m.scrollHeight, 50);
+}
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+function autoResize(el) {
+  el.style.height = ''; el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+// Init dark theme active
+document.getElementById('btn-dark').classList.add('active');
+document.getElementById('btn-light').classList.remove('active');
+</script>
+</body>
+</html>
