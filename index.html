@@ -489,7 +489,7 @@
   </div>
 
   <div class="sidebar-bottom">
-    <div class="powered-badge" id="model-badge">🤗 Powered by <span>Hugging Face</span> · Llama-3.1</div>
+    <div class="powered-badge" id="model-badge">⚡ Powered by <span>Groq</span> · Free</div>
     <button class="settings-btn" onclick="openSettings()">⚙️ &nbsp; Settings & Preferences</button>
     <button class="settings-btn">📋 &nbsp; Health Disclaimer</button>
   </div>
@@ -504,7 +504,7 @@
     </div>
     <div class="chat-header-info">
       <h2>VitaChat Health AI</h2>
-      <p>Powered by Hugging Face Llama • Always online</p>
+      <p>Powered by Groq AI · Llama 3.3 · Always online</p>
     </div>
     <div class="header-actions">
       <button class="icon-btn" title="Toggle theme" onclick="toggleTheme()">☀️</button>
@@ -516,7 +516,7 @@
     <div class="welcome" id="welcome-screen">
       <div class="welcome-icon">🌿</div>
       <h1>Your <span>Health</span> Companion</h1>
-      <p>Ask me anything about nutrition, diet plans, common health conditions, food benefits, and wellness tips. Powered by Hugging Face AI.</p>
+      <p>Ask me anything about nutrition, diet plans, common health conditions, food benefits, and wellness tips. Powered by Groq AI — free, fast, no setup needed.</p>
       <div class="welcome-chips">
         <button class="welcome-chip" onclick="quickTopic('What should I eat for better energy throughout the day?')">⚡ Energy foods</button>
         <button class="welcome-chip" onclick="quickTopic('Explain the benefits of a Mediterranean diet')">🫒 Mediterranean diet</button>
@@ -561,26 +561,27 @@
   <div class="settings-body">
 
     <div class="setting-group">
-      <label>🔑 Hugging Face Token</label>
-      <div style="display:flex;gap:8px;align-items:center">
-        <input
-          type="password"
-          id="hf-token-field"
-          placeholder="hf_xxxxxxxxxxxxxxxxxxxx"
-          value="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"
+      <label>🔑 Groq API Key</label>
+
+      <div style="padding:10px 12px;border-radius:10px;background:rgba(0,212,170,0.08);
+           border:1px solid rgba(0,212,170,0.2);font-size:12px;color:var(--text2);margin-bottom:12px">
+        ⚡ <strong style="color:var(--accent)">Free &amp; instant</strong> — get your key at
+        <a href="https://console.groq.com/keys" target="_blank" style="color:var(--accent)">console.groq.com/keys</a>
+        in 30 seconds. No credit card needed. Runs <strong>Llama 3.3-70B</strong> at blazing speed.
+      </div>
+
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+        <input type="password" id="groq-key-field" placeholder="gsk_..."
           style="flex:1;padding:9px 12px;border-radius:10px;background:var(--surface);
-                 border:1px solid var(--border);color:var(--text);font-family:var(--font-family);
-                 font-size:12px;outline:none;transition:border-color 0.2s,box-shadow 0.2s;
-                 font-family:monospace"
-        />
+                 border:1px solid var(--border);color:var(--text);font-size:12px;
+                 outline:none;font-family:monospace;transition:border-color 0.2s,box-shadow 0.2s"/>
         <button onclick="saveToken()" style="padding:9px 14px;border-radius:10px;
           background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;
           color:#0a0f1a;font-weight:600;font-size:13px;cursor:pointer;
           font-family:var(--font-family);white-space:nowrap">Save</button>
       </div>
-      <div style="font-size:11px;color:var(--text3);margin-top:6px">
-        Get a free token at <a href="https://huggingface.co/settings/tokens" target="_blank"
-        style="color:var(--accent)">huggingface.co/settings/tokens</a> — needs <b>Inference</b> permission
+      <div style="font-size:11px;color:var(--text3)">
+        Keys start with <code>gsk_</code> · Free tier: 14,400 requests/day
       </div>
     </div>
 
@@ -647,20 +648,16 @@
 </div>
 
 <script>
-// ─── CONFIG ────────────────────────────────────────────────────────────────
-// The correct HF router URL — OpenAI-compatible, provider selected via :suffix on model name
-let HF_TOKEN = localStorage.getItem('hf_token') || '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';
-const HF_API_URL = 'https://router.huggingface.co/v1/chat/completions';
 
-// Model + provider pairs using the official ":provider" suffix format.
-// ":auto" lets HF pick the best available provider automatically.
-// Fallback chain tried in order until one succeeds.
-const HF_MODELS = [
-  'meta-llama/Llama-3.1-8B-Instruct:nebius',
-  'Qwen/Qwen2.5-72B-Instruct:nebius',
-  'meta-llama/Llama-3.1-8B-Instruct:novita',
-  'Qwen/Qwen2.5-7B-Instruct:auto',
-  'mistralai/Mistral-7B-Instruct-v0.3:auto'
+// ─── CONFIG ────────────────────────────────────────────────────────────────
+// PRIMARY: Groq — free, CORS-safe, blazing fast Llama/Gemma/Mixtral in browser
+// Get a free key instantly at: console.groq.com (no card required)
+let GROQ_KEY = localStorage.getItem('groq_key') || '';
+const GROQ_MODELS = [
+  'llama-3.3-70b-versatile',
+  'llama-3.1-8b-instant',
+  'gemma2-9b-it',
+  'mixtral-8x7b-32768'
 ];
 
 // ─── STATE ─────────────────────────────────────────────────────────────────
@@ -680,23 +677,16 @@ const SYSTEM_INSTRUCTION = `You are VitaChat, a friendly and knowledgeable AI he
 - Hydration and sleep health
 - Weight management and healthy lifestyle
 
-When relevant, format your responses with clear structure using bold headers (using **text**), bullet points, and organized sections.
-When discussing foods, mention their nutritional value enthusiastically.
-If the user shares an image description of food, analyze it from a nutritional health perspective.
-Always be warm, encouraging, and motivating about health journeys.
-REFUSE any non-health topics politely and redirect to health topics.
-Keep responses helpful, accurate, and appropriately concise.`;
+Format responses with bold headers (**text**), bullet points, and organized sections when helpful.
+Mention nutritional value enthusiastically when discussing foods.
+Always be warm, encouraging, and motivating.
+REFUSE non-health topics politely and redirect to health.
+Keep responses helpful, accurate, and concise.`;
 
-// ─── LANGUAGE PROMPTS ─────────────────────────────────────────────────────
 const langInstructions = {
-  en: 'Respond in English.',
-  fr: 'Réponds en français.',
-  es: 'Responde en español.',
-  de: 'Antworte auf Deutsch.',
-  ar: 'أجب باللغة العربية.',
-  zh: '用中文回答。',
-  pt: 'Responda em português.',
-  hi: 'हिंदी में जवाब दें।'
+  en: 'Respond in English.', fr: 'Réponds en français.', es: 'Responde en español.',
+  de: 'Antworte auf Deutsch.', ar: 'أجب باللغة العربية.', zh: '用中文回答。',
+  pt: 'Responda em português.', hi: 'हिंदी में जवाब दें।'
 };
 
 // ─── SEND MESSAGE ──────────────────────────────────────────────────────────
@@ -704,174 +694,121 @@ async function sendMessage() {
   const input = document.getElementById('chat-input');
   const text = input.value.trim();
   if (!text && !pendingImage) return;
-
   hideWelcome();
   const messagesEl = document.getElementById('messages');
-
-  // Build user bubble
   const userRow = document.createElement('div');
   userRow.className = 'msg-row user';
   let bubbleHTML = '';
-  if (pendingImage) {
-    bubbleHTML += `<img src="${pendingImage}" alt="uploaded" style="max-width:200px;border-radius:10px;margin-bottom:8px;display:block"/>`;
-  }
+  if (pendingImage) bubbleHTML += `<img src="${pendingImage}" alt="uploaded" style="max-width:200px;border-radius:10px;margin-bottom:8px;display:block"/>`;
   if (text) bubbleHTML += formatText(text);
-
-  userRow.innerHTML = `
-    <div class="msg-content">
-      <div class="msg-bubble">${bubbleHTML}</div>
-      <div class="msg-time">${getTime()}</div>
-    </div>
-    <div class="msg-avatar user">🙂</div>`;
+  userRow.innerHTML = `<div class="msg-content"><div class="msg-bubble">${bubbleHTML}</div><div class="msg-time">${getTime()}</div></div><div class="msg-avatar user">🙂</div>`;
   messagesEl.appendChild(userRow);
-
-  // Capture & clear
-  const userText = text;
-  const imgBase64 = pendingImageBase64;
-  const imgMime = pendingImageMime;
-  input.value = '';
-  input.style.height = '';
-  removeImage();
-  scrollBottom();
-
-  // Show typing
+  const userText = text, imgBase64 = pendingImageBase64;
+  input.value = ''; input.style.height = '';
+  removeImage(); scrollBottom();
   const typingRow = addTyping();
-
   try {
-    const reply = await callHuggingFace(userText, imgBase64, imgMime);
-    typingRow.remove();
-    addBotMessage(reply);
-
-    // Keep conversation history for context (text only)
+    const reply = await getAIReply(userText, imgBase64);
+    typingRow.remove(); addBotMessage(reply);
     conversationHistory.push({ role: 'user', content: userText || '[image uploaded]' });
     conversationHistory.push({ role: 'assistant', content: reply });
     if (conversationHistory.length > 20) conversationHistory = conversationHistory.slice(-20);
-
-  } catch (e) {
+  } catch(e) {
     typingRow.remove();
-    const errMsg = e.message || 'Unknown error';
-    addBotMessage(`⚠️ **Connection issue:** ${errMsg}\n\nPlease check your internet connection and try again. 🌿`, true);
-    console.error('HF API Error:', e);
+    addBotMessage(`⚠️ **${e.message}**`, true);
+    console.error('[VitaChat]', e);
   }
 }
 
-// ─── CALL HUGGING FACE API (provider-router with :provider suffix) ──────────
-async function callHuggingFace(userText, imgBase64, imgMime) {
+// ─── AI REPLY: Groq (CORS-safe) → Pollinations GET (no-auth fallback) ──────
+async function getAIReply(userText, imgBase64) {
   const langNote = langInstructions[currentLang] || '';
-  const systemContent = SYSTEM_INSTRUCTION + (langNote ? `\n\n${langNote}` : '');
+  const sysMsg = SYSTEM_INSTRUCTION + (langNote ? '\n\n' + langNote : '');
+  let userMsg = userText || '';
+  if (imgBase64) userMsg += userMsg ? '\n\n(Food image uploaded — please give relevant nutritional advice.)' : 'Give nutritional advice about healthy eating for an uploaded food image.';
 
-  // Build message history
-  const baseMessages = [{ role: 'system', content: systemContent }];
-  for (const turn of conversationHistory.slice(-8)) {
-    baseMessages.push({ role: turn.role, content: turn.content });
-  }
+  const messages = [
+    { role: 'system', content: sysMsg },
+    ...conversationHistory.slice(-8),
+    { role: 'user', content: userMsg }
+  ];
 
-  // Current user turn — image_url supported by vision-capable models
-  let userContent;
-  if (imgBase64) {
-    userContent = [
-      { type: 'image_url', image_url: { url: imgBase64 } },
-      { type: 'text', text: userText || 'Analyze this food image: describe what you see, estimate nutrition, and give health insights.' }
-    ];
-  } else {
-    userContent = userText;
-  }
-
-  const messages = [...baseMessages, { role: 'user', content: userContent }];
-
-  let lastError = 'No models tried yet';
-
-  for (const model of HF_MODELS) {
-    try {
-      const res = await fetch(HF_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${HF_TOKEN.trim()}`
-        },
-        body: JSON.stringify({
-          model,                  // e.g. "meta-llama/Llama-3.1-8B-Instruct:nebius"
-          messages,
-          max_tokens: 1024,
-          temperature: 0.7,
-          top_p: 0.9,
-          stream: false
-        })
-      });
-
-      // Parse body regardless of status — error details are inside
-      let data;
-      try { data = await res.json(); } catch(_) { data = {}; }
-
-      // 401/403 = bad token — no point trying other models
-      if (res.status === 401 || res.status === 403) {
-        showTokenPrompt();
-        throw new Error('🔑 Token rejected — open ⚙️ Settings and paste a valid HF token.');
+  // ── GROQ: Free, proper CORS headers, works from any browser origin ─────
+  if (GROQ_KEY) {
+    for (const model of GROQ_MODELS) {
+      try {
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY.trim()}` },
+          body: JSON.stringify({ model, messages, max_tokens: 900, temperature: 0.7 })
+        });
+        let data; try { data = await res.json(); } catch(_) { data = {}; }
+        if (res.status === 401) {
+          GROQ_KEY = ''; localStorage.removeItem('groq_key');
+          showTokenPrompt(); break;
+        }
+        if (res.status === 429) throw new Error('Rate limit hit — wait a moment and try again.');
+        if (!res.ok) { console.warn(`[Groq/${model}] ${res.status}`); continue; }
+        const reply = data?.choices?.[0]?.message?.content?.trim();
+        if (reply) { updateBadge(model, 'Groq'); return reply; }
+      } catch(e) {
+        if (e.message.includes('Rate limit')) throw e;
+        console.warn(`[Groq/${model}]`, e.message);
       }
-
-      // Model/provider not available — skip to next
-      if (res.status === 404 || res.status === 400 || res.status === 422) {
-        lastError = data?.error?.message || data?.error || `${model} not available (${res.status})`;
-        console.warn(`[HF] Skip ${model}: ${lastError}`);
-        continue;
-      }
-
-      // Rate limit — surface clearly
-      if (res.status === 429) {
-        throw new Error('Rate limit reached. Wait a moment and try again, or upgrade to HF PRO.');
-      }
-
-      if (!res.ok) {
-        throw new Error(data?.error?.message || data?.error || `HTTP ${res.status}`);
-      }
-
-      const reply = data?.choices?.[0]?.message?.content?.trim();
-      if (!reply) { lastError = 'Empty response'; continue; }
-
-      // Update badge to show which model/provider responded
-      const [modelBase, provider] = model.split(':');
-      const shortName = modelBase.split('/')[1] || modelBase;
-      const badge = document.getElementById('model-badge');
-      if (badge) badge.innerHTML = `🤗 <span style="color:var(--accent)">${shortName}</span> via ${provider || 'HF'}`;
-
-      return reply;
-
-    } catch (err) {
-      // Hard stops — don't try next model
-      if (err.message.includes('🔑') || err.message.includes('Rate limit')) throw err;
-      lastError = err.message;
-      const skippable = /not available|not found|not supported|no provider|404|400|422|unavailable/i.test(err.message);
-      if (skippable) { console.warn(`[HF] Skip ${model}: ${err.message}`); continue; }
-      throw err;
     }
   }
 
-  throw new Error(`All providers failed. Last error: ${lastError}`);
+  // ── POLLINATIONS GET: pure GET = zero CORS preflight, zero auth ────────
+  for (const model of ['openai', 'mistral', 'llama']) {
+    try {
+      const qs = new URLSearchParams({ model, system: sysMsg.slice(0, 400), private: 'true' });
+      const url = `https://text.pollinations.ai/${encodeURIComponent(userMsg.slice(0, 350))}?${qs}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const reply = (await res.text()).trim();
+        if (reply && reply.length > 15) { updateBadge(model, 'Pollinations'); return reply; }
+      }
+    } catch(e) { console.warn(`[Poll/${model}]`, e.message); }
+  }
+
+  if (!GROQ_KEY) {
+    throw new Error('Add a free Groq key in ⚙️ Settings to unlock fast AI. Get one free at console.groq.com — takes 30 seconds!');
+  }
+  throw new Error('All providers failed. Please check your internet connection and try again.');
 }
 
-// ─── TOKEN PROMPT ──────────────────────────────────────────────────────────
+function updateBadge(model, provider) {
+  const b = document.getElementById('model-badge');
+  const s = model.replace('llama-3.3-70b-versatile','Llama-3.3-70B').replace('llama-3.1-8b-instant','Llama-3.1-8B').replace('gemma2-9b-it','Gemma-2-9B').replace('mixtral-8x7b-32768','Mixtral-8x7B');
+  if (b) b.innerHTML = `⚡ <span>${s}</span> · ${provider}`;
+}
+
+// ─── KEY MANAGEMENT ────────────────────────────────────────────────────────
 function showTokenPrompt() {
   openSettings();
   setTimeout(() => {
-    const el = document.getElementById('hf-token-field');
-    if (el) { el.focus(); el.select(); el.style.borderColor = '#ef4444'; el.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.2)'; }
+    const el = document.getElementById('groq-key-field');
+    if (el) { el.focus(); el.select(); el.style.borderColor = '#ef4444'; el.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.25)'; setTimeout(() => { el.style.borderColor=''; el.style.boxShadow=''; }, 3000); }
   }, 350);
 }
 
 function saveToken() {
-  const val = document.getElementById('hf-token-field').value.trim();
-  if (!val.startsWith('hf_')) {
-    alert('HF tokens start with "hf_" — please check and try again.');
-    return;
+  const el = document.getElementById('groq-key-field');
+  const val = el?.value?.trim();
+  if (val && val.startsWith('gsk_')) {
+    GROQ_KEY = val; localStorage.setItem('groq_key', val);
+    el.style.borderColor = '#22c55e'; el.style.boxShadow = '0 0 0 3px rgba(34,197,94,0.2)';
+    setTimeout(() => { el.style.borderColor=''; el.style.boxShadow=''; }, 2000);
+    closeSettings();
+    addBotMessage('✅ **Groq key saved!** Now powered by Llama 3.3-70B — ultra fast. Ask me anything about your health! 🌿');
+  } else if (val) {
+    el.style.borderColor = '#ef4444'; el.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.2)';
+    setTimeout(() => { el.style.borderColor=''; el.style.boxShadow=''; }, 2000);
+    addBotMessage('⚠️ Groq keys start with **gsk_** — check your key and try again. Get one free at **console.groq.com**', true);
+  } else {
+    closeSettings();
+    addBotMessage('ℹ️ Running on Pollinations fallback. For best results, add a free Groq key at **console.groq.com** 🌿');
   }
-  HF_TOKEN = val;
-  localStorage.setItem('hf_token', val);
-  const el = document.getElementById('hf-token-field');
-  el.style.borderColor = '#22c55e';
-  el.style.boxShadow = '0 0 0 3px rgba(34,197,94,0.2)';
-  setTimeout(() => { el.style.borderColor = ''; el.style.boxShadow = ''; }, 2000);
-  closeSettings();
-  addBotMessage('✅ **Token updated!** You can now start chatting. Ask me anything about your health and nutrition! 🌿');
 }
 
 // ─── BOT MESSAGE ──────────────────────────────────────────────────────────
@@ -1036,7 +973,7 @@ function newChat() {
   welcome.innerHTML = `
     <div class="welcome-icon">🌿</div>
     <h1>Your <span>Health</span> Companion</h1>
-    <p>Ask me anything about nutrition, diet plans, common health conditions, food benefits, and wellness tips. Powered by Hugging Face AI.</p>
+    <p>Ask me anything about nutrition, diet plans, common health conditions, food benefits, and wellness tips. Powered by Groq AI — free, fast, no setup needed.</p>
     <div class="welcome-chips">
       <button class="welcome-chip" onclick="quickTopic('What should I eat for better energy throughout the day?')">⚡ Energy foods</button>
       <button class="welcome-chip" onclick="quickTopic('Explain the benefits of a Mediterranean diet')">🫒 Mediterranean diet</button>
